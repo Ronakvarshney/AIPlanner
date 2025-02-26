@@ -20,21 +20,28 @@ import axios from "axios";
 
 const Navbar = () => {
   const [opendialog, setopendialog] = useState(false);
-  const user = JSON.parse(localStorage.getItem("user"));
+  const [user, setUser] = useState(null); // Store user state
   const router = useRouter();
 
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
+
   const login = useGoogleLogin({
-    onSuccess: (coderes) => GetUserProfile(coderes),
-    onError: (error) => console.log(error),
+    onSuccess: (tokenResponse) => GetUserProfile(tokenResponse),
+    onError: (error) => console.error("Google login failed:", error),
   });
 
-  const GetUserProfile = async (tokeninfo) => {
+  const GetUserProfile = async (tokenInfo) => {
     try {
       const resp = await axios.get(
-        `https://www.googleapis.com/oauth2/v1/userinfo?access_token=${tokeninfo?.access_token}`,
+        `https://www.googleapis.com/oauth2/v1/userinfo?access_token=${tokenInfo?.access_token}`,
         {
           headers: {
-            Authorization: `Bearer ${tokeninfo?.access_token}`,
+            Authorization: `Bearer ${tokenInfo?.access_token}`,
             Accept: "Application/json",
           },
         }
@@ -42,21 +49,25 @@ const Navbar = () => {
 
       const userData = resp.data;
       localStorage.setItem("user", JSON.stringify(userData));
+      setUser(userData); // Update state
       setopendialog(false);
-      window.location.reload();
+      router.refresh(); // Refresh to ensure UI updates
     } catch (error) {
       console.error("Error fetching user profile:", error);
     }
   };
 
-  useEffect(() => {
-    console.log(user);
-  }, []);
+  const handleLogout = () => {
+    googleLogout();
+    localStorage.removeItem("user");
+    setUser(null);
+    router.refresh(); // Refresh page after logout
+  };
 
   return (
     <nav className="bg-gradient-to-r from-indigo-800 via-purple-700 to-pink-600 p-4 fixed w-full top-0 shadow-2xl z-50">
       <div className="container mx-auto flex justify-between items-center">
-     
+        {/* Logo */}
         <Link href="/" className="flex items-center gap-3">
           <img
             src="/vecteezy_beach-island-landscape-logo-beach-logo-design-vector_6627385-1.jpg"
@@ -68,31 +79,27 @@ const Navbar = () => {
           </span>
         </Link>
 
-        
+        {/* Auth Section */}
         {user ? (
           <div className="flex items-center space-x-5">
-          
+            {/* My Trip Button */}
             <Link href="/mytrip">
               <button className="px-5 py-2 bg-gray-900 text-white rounded-lg shadow-md hover:bg-gray-700 transition duration-300 transform hover:scale-105">
                 My Trip
               </button>
             </Link>
 
-           
+            {/* Profile Dropdown */}
             <Popover>
               <PopoverTrigger>
-                <div className="bg-gray-300  px-4 py-2 rounded-lg shadow-lg cursor-pointer hover:bg-gray-200 transition duration-300">
+                <div className="bg-gray-300 px-4 py-2 rounded-lg shadow-lg cursor-pointer hover:bg-gray-200 transition duration-300">
                   {user.name}
                 </div>
               </PopoverTrigger>
               <PopoverContent className="p-3 text-center">
                 <button
                   className="bg-red-600 text-white px-4 py-2 rounded-md shadow-md hover:bg-red-700 transition duration-300 w-full"
-                  onClick={() => {
-                    googleLogout();
-                    localStorage.clear();
-                    router.push("/");
-                  }}
+                  onClick={handleLogout}
                 >
                   Logout
                 </button>
@@ -109,7 +116,7 @@ const Navbar = () => {
         )}
       </div>
 
-     
+      {/* Google Sign-In Dialog */}
       <Dialog open={opendialog} onOpenChange={setopendialog}>
         <DialogContent className="bg-white p-6 rounded-lg shadow-xl">
           <DialogHeader>
